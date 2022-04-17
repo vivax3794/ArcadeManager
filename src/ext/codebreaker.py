@@ -8,6 +8,23 @@ import miru
 from loguru import logger
 
 
+LORE_TEXT = """
+Oh no! vivax was doing his usual poking around at random stuff, this time our loved hero was messing with a electronic lock.
+Good news (maybe not for who lives here) vivax managed exploit the lock and break in!
+Now vivax discoverd that the door cant be opened from the inside at night, so now they are stuck!
+
+That is where you come in, you arrive at the scene and discover mess of wires connected to a lock.
+Besides the lock you see two displays, apperantly with a bit of hacking vivax managed to extract hints about the actual code whenever they enter a wrong one!
+
+:white_check_mark: Means the amount of numbers in the correct spot
+:left_right_arrow: Means amount of correct numbers in the wrong spots
+
+Can you help our local hacker get free and avoid prison? 
+
+**remmember:** A pin code can have duplicate digits!
+"""
+
+
 def create_button(row: int, number: int) -> miru.Button:
     @miru.button(label=str(number), row=row)
     async def callback(
@@ -24,7 +41,7 @@ class Codebreaker(miru.View):
         logger.debug(f"CODE IS {code}")
         self.code = code
         self.user_id = user_id
-        self.current_output = ".\n"
+        self.current_output = LORE_TEXT
         self.current_input = ""
         self.moves = 0
 
@@ -97,6 +114,6 @@ async def codebreaker_command(ctx: lightbulb.Context) -> None:
         "".join(random.choices("123456789", k=ctx.options.length)), ctx.user.id
     )
     reponse = await ctx.respond(
-        hikari.ResponseType.MESSAGE_CREATE, "idk", components=view.build()
+        hikari.ResponseType.MESSAGE_CREATE, LORE_TEXT, components=view.build()
     )
     view.start(await reponse.message())

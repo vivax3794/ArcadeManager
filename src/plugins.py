@@ -2,7 +2,7 @@ import lightbulb
 from loguru import logger
 
 from src import constants
-from src.ext import codebreaker, stars, suggestions
+from src.ext import codebreaker, stars, suggestions, tixtax
 
 PLUGINS: dict[lightbulb.Plugin, list[tuple[bool, str]]] = {
     suggestions.plugin: [
@@ -13,6 +13,7 @@ PLUGINS: dict[lightbulb.Plugin, list[tuple[bool, str]]] = {
         (constants.Channels.STARS != 0, "Stars verification channel not defined."),
     ],
     codebreaker.plugin: [],
+    tixtax.plugin: [],
 }
 
 

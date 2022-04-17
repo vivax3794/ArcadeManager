@@ -12,7 +12,9 @@ dependencies = [
     "loguru>=0.6.0",
     "pillow>=9.1.0",
     "hikari-miru>=1.1.1",
-    "python-decouple>=3.6"]
+    "python-decouple>=3.6",
+    "numpy>=1.22.3",
+]
 requires-python = ">=3.10,<3.11"
 
 [project.urls]

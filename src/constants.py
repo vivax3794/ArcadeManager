@@ -17,12 +17,16 @@ if TYPE_CHECKING:
     @overload
     def config(name: str, cast: type[T], default: T) -> T:
         ...
-    
-    def config(): ...  # type: ignore
+
+    def config():
+        ...  # type: ignore
 
 else:
     DOTENV_PATH = sys.argv[1] if len(sys.argv) >= 2 else ".env"
     config = decouple.Config(decouple.RepositoryEnv(DOTENV_PATH))
+
+
+GUILD_ID = config("GUILD_ID", cast=int)
 
 
 class Secrets:

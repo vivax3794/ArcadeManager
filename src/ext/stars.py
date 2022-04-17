@@ -9,6 +9,7 @@ import miru
 from lightbulb.ext import tasks
 from loguru import logger
 from PIL import Image, ImageDraw
+import time
 
 from src import constants
 
@@ -52,19 +53,22 @@ class VerificationView(miru.View):
         super().__init__(timeout=None)
         self.data = data
         self.embed = embed
-    
+
     async def send_star_data(self, url: str, ctx: miru.Context) -> None:
         self.embed.set_author(name=ctx.user.username, icon=ctx.user.avatar_url)
+        timestamp = int(time.time())
+        self.embed.description = f"last interacted with: <t:{timestamp}:t> (<t:{timestamp}:R>)"
 
         await ctx.defer()
         async with plugin.d.session.post(url, json=self.data) as resp:
             logger.debug(await resp.text())
 
+
 class AcceptDenyView(VerificationView):
     @miru.button(label="accept", style=hikari.ButtonStyle.SUCCESS)
     async def accept_button(self, button: miru.Button, ctx: miru.Context) -> None:
         await self.send_star_data(ACCEPT_URL, ctx)
-        
+
         self.embed.color = hikari.Color.from_hex_code("#00ff00")
         self.clear_items()
         self.stop()
@@ -76,12 +80,13 @@ class AcceptDenyView(VerificationView):
     @miru.button(label="reject", style=hikari.ButtonStyle.DANGER)
     async def reject_button(self, button: miru.Button, ctx: miru.Context) -> None:
         await self.send_star_data(REJECT_URL, ctx)
-        
+
         self.embed.color = hikari.Color.from_hex_code("#ff0000")
         self.clear_items()
         self.stop()
 
         await ctx.edit_response(embeds=[self.embed], components=[])
+
 
 class ResendView(VerificationView):
     @miru.button(label="resend", style=hikari.ButtonStyle.PRIMARY)
@@ -109,7 +114,7 @@ async def post_new_stars(data: dict[str, Any]) -> None:
     embed.add_field("star count", len(data["stars"]))
 
     data = {"jwt": constants.Secrets.JWT, "stars": data["stars"], "twitchId": user}
-    
+
     view = AcceptDenyView(data, embed)
     message = await plugin.bot.rest.create_message(
         constants.Channels.STARS,

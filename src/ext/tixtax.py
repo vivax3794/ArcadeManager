@@ -243,7 +243,7 @@ class SelectionButton(miru.Button):
 
 class GameView(miru.View):
     def __init__(self, game: Game) -> None:
-        super().__init__()
+        super().__init__(timeout=None)
         self.game = game
         self.recalc_buttons()
     

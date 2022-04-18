@@ -5,9 +5,7 @@ from src import constants
 from src.ext import codebreaker, stars, suggestions, tixtax
 
 PLUGINS: dict[lightbulb.Plugin, list[tuple[bool, str]]] = {
-    suggestions.plugin: [
-        (constants.Channels.SUGGESTIONS != 0, "suggestions channel not defined.")
-    ],
+    suggestions.plugin: [(constants.Channels.SUGGESTIONS != 0, "suggestions channel not defined.")],
     stars.plugin: [
         (constants.Secrets.JWT is not None, "JWT not defined."),
         (constants.Channels.STARS != 0, "Stars verification channel not defined."),

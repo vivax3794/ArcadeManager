@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import typing_extensions
 
 import hikari
 import lightbulb
@@ -26,15 +27,13 @@ INSTRUCTIONS = """
 """
 
 
-def create_button(row: int, number: int) -> miru.Button:
-    @miru.button(label=str(number), row=row)
-    async def callback(
-        self: Codebreaker, button: miru.Button, ctx: miru.Context
-    ) -> None:
-        await self.button_clicked(ctx, str(number))
+class NumberButton(miru.Button["Codebreaker"]):
+    def __init__(self, row: int, number: int) -> None:
+        super().__init__(style=hikari.ButtonStyle.PRIMARY, label=str(number), row=row)
+        self.number = str(number)
 
-    return callback
-
+    async def callback(self, context: miru.Context) -> None:
+        await self.view.button_clicked(context, self.number)
 
 class Codebreaker(miru.View):
     def __init__(self, code: str, user_id: int) -> None:
@@ -46,10 +45,10 @@ class Codebreaker(miru.View):
         self.current_input = ""
         self.moves = 0
 
-    async def view_check(self, ctx: miru.Context) -> bool:
-        result = ctx.user.id == self.user_id
+    async def view_check(self, context: miru.Context) -> bool:
+        result = context.user.id == self.user_id
         if result is False:
-            await ctx.respond("hey dont do that", flags=hikari.MessageFlag.EPHEMERAL)
+            await context.respond("hey dont do that", flags=hikari.MessageFlag.EPHEMERAL)
         return result
 
     def disable(self):
@@ -61,7 +60,9 @@ class Codebreaker(miru.View):
 
         if self.current_input == self.code:
             self.moves += 1
-            self.current_output += f"\n`{self.current_input}` - **CORRECT**\n\nyou solved it in **{self.moves}** moves!"
+            self.current_output += (
+                f"\n`{self.current_input}` - **CORRECT**\n\nyou solved it in **{self.moves}** moves!"
+            )
             self.disable()
             await ctx.edit_response(self.current_output, components=[])
             self.stop()
@@ -71,32 +72,27 @@ class Codebreaker(miru.View):
             self.moves += 1
             correct_spots = sum(a == b for a, b in zip(self.current_input, self.code))
             correct_numbers = (
-                sum(
-                    min(self.current_input.count(a), self.code.count(a))
-                    for a in set(self.current_input)
-                )
+                sum(min(self.current_input.count(a), self.code.count(a)) for a in set(self.current_input))
                 - correct_spots
             )
 
             self.current_output += f"\n`{self.current_input}` - `{correct_spots}`:white_check_mark:  `{correct_numbers}`:left_right_arrow:"
             self.current_input = ""
 
-        await ctx.edit_response(
-            self.current_output + "\n**INPUT:**`" + self.current_input + "`"
-        )
+        await ctx.edit_response(self.current_output + "\n**INPUT:**`" + self.current_input + "`")
 
-    button_1 = create_button(0, 1)
-    button_2 = create_button(0, 2)
-    button_3 = create_button(0, 3)
-    button_4 = create_button(1, 4)
-    button_5 = create_button(1, 5)
-    button_6 = create_button(1, 6)
-    button_7 = create_button(2, 7)
-    button_8 = create_button(2, 8)
-    button_9 = create_button(2, 9)
+    button_1 = NumberButton(0, 1)
+    button_2 = NumberButton(0, 2)
+    button_3 = NumberButton(0, 3)
+    button_4 = NumberButton(1, 4)
+    button_5 = NumberButton(1, 5)
+    button_6 = NumberButton(1, 6)
+    button_7 = NumberButton(2, 7)
+    button_8 = NumberButton(2, 8)
+    button_9 = NumberButton(2, 9)
 
     @miru.button(label="QUIT", style=hikari.ButtonStyle.DANGER, row=3)
-    async def quit_button(self, button: miru.Button, ctx: miru.Context) -> None:
+    async def quit_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
         self.current_output += f"\n\ncode was `{self.code}`"
         self.disable()
         await ctx.edit_response(self.current_output, components=[])
@@ -111,9 +107,7 @@ plugin = lightbulb.Plugin("Codebreaker", include_datastore=False)
 @lightbulb.command("codebreaker", "play some code breaker!")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def codebreaker_command(ctx: lightbulb.Context) -> None:
-    view = Codebreaker(
-        "".join(random.choices("123456789", k=ctx.options.length)), ctx.user.id
-    )
+    view = Codebreaker("".join(random.choices("123456789", k=ctx.options.length)), ctx.user.id)
     reponse = await ctx.respond(
         hikari.ResponseType.MESSAGE_CREATE,
         LORE_TEXT + INSTRUCTIONS,

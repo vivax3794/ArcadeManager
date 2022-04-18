@@ -13,7 +13,7 @@ dependencies = [
     "pillow>=9.1.0",
     "hikari-miru>=1.1.1",
     "python-decouple>=3.6",
-    "numpy>=1.22.3",
+    "typing-extensions>=4.2.0",
 ]
 requires-python = ">=3.10,<3.11"
 
@@ -23,16 +23,32 @@ Homepage = ""
 [project.optional-dependencies]
 [tool.pdm]
 [tool.pdm.dev-dependencies]
+format = [
+    "black>=22.3.0",
+    "isort>=5.10.1",
+]
+lint = [
+    "pyright>=1.1.238",
+    "flake8>=4.0.1",
+    "types-Pillow>=9.0.13",
+]
 
 [build-system]
 requires = ["pdm-pep517>=0.12.0"]
 build-backend = "pdm.pep517.api"
 
 [tool.pyright]
+typeCheckingMode = "strict"
 extraPaths = ["__pypackages__/3.10/lib"]
+ignore = ["__pypackages__/"]
+include = ["src"]
+
+[tool.black]
+line-length = 110
 
 [tool.pdm.scripts]
 prod = "python -m src .prod.env"
 dev = "python -m src .dev.env"
+
 lint = { shell = "flake8 src; pyright src" }
 format = { shell = "black src; isort src;" }

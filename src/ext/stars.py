@@ -1,6 +1,8 @@
 import asyncio
 import io
+import time
 from typing import Any
+import typing_extensions
 
 import aiohttp
 import hikari
@@ -9,7 +11,6 @@ import miru
 from lightbulb.ext import tasks
 from loguru import logger
 from PIL import Image, ImageDraw
-import time
 
 from src import constants
 
@@ -49,7 +50,7 @@ plugin = lightbulb.Plugin("StarVerification", include_datastore=True)
 
 
 class VerificationView(miru.View):
-    def __init__(self, data: dict[str, Any], embed: hikari.Embed) -> None:
+    def __init__(self, data: dict[str, object], embed: hikari.Embed) -> None:
         super().__init__(timeout=None)
         self.data = data
         self.embed = embed
@@ -66,7 +67,9 @@ class VerificationView(miru.View):
 
 class AcceptDenyView(VerificationView):
     @miru.button(label="accept", style=hikari.ButtonStyle.SUCCESS)
-    async def accept_button(self, button: miru.Button, ctx: miru.Context) -> None:
+    async def accept_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        assert self.message is not None
+
         await self.send_star_data(ACCEPT_URL, ctx)
 
         self.embed.color = hikari.Color.from_hex_code("#00ff00")
@@ -78,7 +81,7 @@ class AcceptDenyView(VerificationView):
         new_view.start(self.message)
 
     @miru.button(label="reject", style=hikari.ButtonStyle.DANGER)
-    async def reject_button(self, button: miru.Button, ctx: miru.Context) -> None:
+    async def reject_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
         await self.send_star_data(REJECT_URL, ctx)
 
         self.embed.color = hikari.Color.from_hex_code("#ff0000")
@@ -90,7 +93,7 @@ class AcceptDenyView(VerificationView):
 
 class ResendView(VerificationView):
     @miru.button(label="resend", style=hikari.ButtonStyle.PRIMARY)
-    async def accept_button(self, button: miru.Button, ctx: miru.Context) -> None:
+    async def accept_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
         await self.send_star_data(ACCEPT_URL, ctx)
         await ctx.edit_response(embeds=[self.embed])
 
@@ -111,7 +114,7 @@ async def post_new_stars(data: dict[str, Any]) -> None:
 
     embed = hikari.Embed(title=f"NEW STARS: {user}")
     embed.set_image(render_stars(data["stars"]))
-    embed.add_field("star count", len(data["stars"]))
+    embed.add_field("star count", str(len(data["stars"])))
 
     data = {"jwt": constants.Secrets.JWT, "stars": data["stars"], "twitchId": user}
 
@@ -124,7 +127,7 @@ async def post_new_stars(data: dict[str, Any]) -> None:
     view.start(message)
 
 
-def render_stars(stars: list[dict[str, float]]) -> None:
+def render_stars(stars: list[dict[str, float]]) -> io.BytesIO:
     img = Image.new("RGB", (1000, 510))
     draw = ImageDraw.Draw(img)
 
@@ -134,7 +137,7 @@ def render_stars(stars: list[dict[str, float]]) -> None:
         y = int(y * 510)
         color = COLORS[type_]
         logger.debug(f"drawing ({x}, {y}) with color {color}")
-        draw.rectangle([(x, y), (x + 5, y + 5)], fill=color)
+        draw.rectangle(((x, y), (x + 5, y + 5)), fill=color)
 
     output = io.BytesIO()
     img.save(output, "PNG")

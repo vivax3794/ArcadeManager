@@ -45,6 +45,9 @@ class Codebreaker(miru.View):
         self.current_input = ""
         self.moves = 0
 
+        for n in range(1, 10):
+            self.add_item(NumberButton((n - 1) // 3, n))
+
     async def view_check(self, context: miru.Context) -> bool:
         result = context.user.id == self.user_id
         if result is False:
@@ -81,15 +84,10 @@ class Codebreaker(miru.View):
 
         await ctx.edit_response(self.current_output + "\n**INPUT:**`" + self.current_input + "`")
 
-    button_1 = NumberButton(0, 1)
-    button_2 = NumberButton(0, 2)
-    button_3 = NumberButton(0, 3)
-    button_4 = NumberButton(1, 4)
-    button_5 = NumberButton(1, 5)
-    button_6 = NumberButton(1, 6)
-    button_7 = NumberButton(2, 7)
-    button_8 = NumberButton(2, 8)
-    button_9 = NumberButton(2, 9)
+    @miru.button(label="BACK SPACE", row=3)
+    async def backspace_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        self.current_input = self.current_input[:-1]
+        await ctx.edit_response(self.current_output + "\n**INPUT:**`" + self.current_input + "`")
 
     @miru.button(label="QUIT", style=hikari.ButtonStyle.DANGER, row=3)
     async def quit_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
@@ -97,6 +95,8 @@ class Codebreaker(miru.View):
         self.disable()
         await ctx.edit_response(self.current_output, components=[])
         self.stop()
+    
+    
 
 
 plugin = lightbulb.Plugin("Codebreaker", include_datastore=False)

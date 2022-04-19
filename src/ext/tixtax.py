@@ -1,4 +1,5 @@
 from typing import Generic, Protocol, TypeVar
+import typing_extensions
 
 import hikari
 import lightbulb
@@ -296,11 +297,89 @@ class GameView(miru.View):
             button.recalc_styles()
 
 
+
+class InviteView(miru.View):
+    def __init__(self, player_one: int, target: int) -> None:
+        super().__init__(timeout=5 * 60)
+        self.player_one = player_one
+        self.target = target
+    
+    async def on_timeout(self) -> None:
+        if self.message is None:
+            raise TypeError("Message is None")
+
+        await self.message.edit(
+            "Sorry, the invnite timed out.",
+            components=[],
+        )
+
+    async def view_check(self, context: miru.Context) -> bool:
+        if context.user.id != self.target:
+            await context.respond("that button is not for you!", flags=hikari.MessageFlag.EPHEMERAL)
+            return False
+        return True
+
+    @miru.button(label="Accept", style=hikari.ButtonStyle.SUCCESS)
+    async def accept_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        if self.message is None:
+            raise TypeError("Message is None")
+
+        self.stop()
+        
+        game = Game(self.player_one, self.target)
+        view = GameView(game)
+        await ctx.edit_response("", embed=game.render_board(), components=view.build())
+        view.start(self.message)
+
+    @miru.button(label="Decline", style=hikari.ButtonStyle.DANGER)
+    async def decline_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        self.stop()
+        await ctx.edit_response("oh they declined :(", components=[])
+
+
+
+class OpenInviteView(miru.View):
+    def __init__(self, player_one: int) -> None:
+        super().__init__(timeout=10 * 60)
+        self.player_one = player_one
+    
+    async def on_timeout(self) -> None:
+        if self.message is None:
+            raise TypeError("Message is None")
+
+        await self.message.edit(
+            "Sorry, the invnite timed out.",
+            components=[],
+        )
+
+    @miru.button(label="Play", style=hikari.ButtonStyle.SUCCESS)
+    async def play_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        if self.message is None:
+            raise TypeError("Message is None")
+
+        self.stop()
+        
+        game = Game(self.player_one, ctx.user.id)
+        view = GameView(game)
+        await ctx.edit_response("", embed=game.render_board(), components=view.build())
+        view.start(self.message)
+
 @plugin.command
-@lightbulb.option("target", "who do you want to play against?", type=hikari.User)
+@lightbulb.option("target", "who do you want to play against?", type=hikari.User, required=False)
 @lightbulb.command("tixtax", "play some tixtax!")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def tixtax_command(ctx: lightbulb.Context) -> None:
-    view = GameView(Game(ctx.user.id, ctx.options.target.id))
-    response = await ctx.respond(embed=view.game.render_board(), components=view.build())
+    if ctx.options.target is None:
+        view = OpenInviteView(ctx.user.id)
+        response = await ctx.respond(
+            f"{ctx.user.mention} wants to play tixtax with somebody!",
+            components=view.build(),
+        )
+    else:
+        view = InviteView(ctx.user.id, ctx.options.target.id)
+        response = await ctx.respond(
+            f"<@{ctx.options.target.id}>, {ctx.user.mention} wants to play tixtax with you!",
+            components=view.build(),
+            user_mentions=True
+        )
     view.start(await response.message())

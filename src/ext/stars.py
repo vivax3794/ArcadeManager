@@ -2,12 +2,12 @@ import asyncio
 import io
 import time
 from typing import Any
-import typing_extensions
 
 import aiohttp
 import hikari
 import lightbulb
 import miru
+import typing_extensions
 from lightbulb.ext import tasks
 from loguru import logger
 from PIL import Image, ImageDraw

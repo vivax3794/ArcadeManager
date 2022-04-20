@@ -1,9 +1,9 @@
 from typing import Generic, Protocol, TypeVar
-import typing_extensions
 
 import hikari
 import lightbulb
 import miru
+import typing_extensions
 from loguru import logger
 
 
@@ -22,6 +22,9 @@ plugin = lightbulb.Plugin("TixTax")
 
 class SupportsPlayer(Protocol):
     def player(self) -> int | None:
+        ...
+
+    def emote(self) -> str:
         ...
 
 
@@ -60,6 +63,17 @@ class Board(Generic[B]):
 
     def full(self) -> bool:
         return all(cell.player() is not None for row in self.grid for cell in row)
+
+    def emote(self):
+        player = self.player()
+        if player is None:
+            return Emoji.NO_PLAYER
+        elif player == 1:
+            return Emoji.PLAYER_ONE
+        elif player == 2:
+            return Emoji.PLAYER_TWO
+        else:
+            raise ValueError(f"unknown player value: {player}")
 
     def __getitem__(self, position: tuple[int, int]) -> B:
         return self.grid[position[1]][position[0]]
@@ -104,84 +118,74 @@ class Game:
             outer_board.append(outer_row)
         self.board = Board(outer_board)
 
-    def render_board(self) -> hikari.Embed:
-        render_outer_grid: list[str] = []
-        for outer_row in self.board.grid:
-            edges: list[list[str]] = []
-            for left, right in zip(outer_row, outer_row[1:]):
-                edge: list[str] = []
-                if self.selected_board is not None and left == self.board[self.selected_board]:
-                    edge.append(Emoji.EDGE_SELECTED)
-                elif left.player() == 1:
-                    edge.append(Emoji.EDGE_PLAYER_ONE)
-                elif left.player() == 2:
-                    edge.append(Emoji.EDGE_PLAYER_TWO)
-
-                if self.selected_board is not None and right == self.board[self.selected_board]:
-                    edge.append(Emoji.EDGE_SELECTED)
-                elif right.player() == 1:
-                    edge.append(Emoji.EDGE_PLAYER_ONE)
-                elif right.player() == 2:
-                    edge.append(Emoji.EDGE_PLAYER_TWO)
-
-                if len(edge) == 0:
-                    edge = [Emoji.SEPERATOR, Emoji.SEPERATOR]
-                elif len(edge) == 1:
-                    edge *= 2
-
-                edges.append(edge)
-            # logger.debug(edges)
-
-            render_outer_row: list[str] = []
-            for inner_row in range(3):
-                parts = ["".join(player.emote() for player in board.grid[inner_row]) for board in outer_row]
-                render_outer_row.append(
-                    parts[0] + edges[0][inner_row % 2] + parts[1] + edges[1][inner_row % 2] + parts[2]
+    def render_small_board(self) -> str:
+        rows: list[str] = []
+        for row in self.board.grid:
+            rows.append(
+                "".join(
+                    Emoji.EDGE_SELECTED
+                    if self.selected_board is not None and self.board[self.selected_board] == cell
+                    else cell.emote()
+                    for cell in row
                 )
-            render_outer_grid.append("\n".join(render_outer_row))
+            )
+        return "\n".join(rows)
 
-        seperators: list[str] = []
-        for offset in range(2):
-            parts: list[str] = []
-            for col in range(3):
-                top, bottom = self.board[col, offset], self.board[col, offset + 1]
+    def edge_emote(self, board_a: Board[PlayerValue], board_2: Board[PlayerValue]) -> str:
+        if self.selected_board is None:
+            return Emoji.SEPERATOR
 
-                edge_vals: list[str] = []
-                if self.selected_board is not None and top == self.board[self.selected_board]:
-                    edge_vals.append(Emoji.EDGE_SELECTED)
-                elif top.player() == 1:
-                    edge_vals.append(Emoji.EDGE_PLAYER_ONE)
-                elif top.player() == 2:
-                    edge_vals.append(Emoji.EDGE_PLAYER_TWO)
+        selected = self.board[self.selected_board]
+        if selected == board_a or selected == board_2:
+            return Emoji.EDGE_SELECTED
+        else:
+            return Emoji.SEPERATOR
 
-                if self.selected_board is not None and bottom == self.board[self.selected_board]:
-                    edge_vals.append(Emoji.EDGE_SELECTED)
-                elif bottom.player() == 1:
-                    edge_vals.append(Emoji.EDGE_PLAYER_ONE)
-                elif bottom.player() == 2:
-                    edge_vals.append(Emoji.EDGE_PLAYER_TWO)
+    def render_inner_row(self, board: Board[PlayerValue], row_index: int) -> str:
+        return "".join(cell.emote() for cell in board.grid[row_index])
 
-                if len(edge_vals) == 0:
-                    edge_vals = [Emoji.SEPERATOR, Emoji.SEPERATOR]
-                elif len(edge_vals) == 1:
-                    edge_vals *= 2
+    def render_big_row(self, row: list[Board[PlayerValue]]) -> str:
+        left_edge = self.edge_emote(row[0], row[1])
+        right_edge = self.edge_emote(row[1], row[2])
 
-                parts.append(edge_vals[0] + edge_vals[1] + edge_vals[0])
-            seperators.append(Emoji.SEPERATOR.join(parts))
+        inner_rows: list[str] = []
+        for inner_row_index in range(3):
+            inner_rows.append(
+                self.render_inner_row(row[0], inner_row_index)
+                + left_edge
+                + self.render_inner_row(row[1], inner_row_index)
+                + right_edge
+                + self.render_inner_row(row[2], inner_row_index)
+            )
+        return "\n".join(inner_rows)
 
-        message = "\n".join(
-            [
-                render_outer_grid[0],
-                seperators[0],
-                render_outer_grid[1],
-                seperators[1],
-                render_outer_grid[2],
-            ]
+    def render_row_seperator(self, row_a: list[Board[PlayerValue]], row_b: list[Board[PlayerValue]]) -> str:
+        if self.selected_board is None:
+            return Emoji.SEPERATOR * 11
+
+        parts: list[str] = [self.edge_emote(board_a, board_b) * 3 for board_a, board_b in zip(row_a, row_b)]
+        return Emoji.SEPERATOR.join(parts)
+
+    def render_big_board(self) -> str:
+        rows = [self.render_big_row(row) for row in self.board.grid]
+        return (
+            rows[0]
+            + "\n"
+            + self.render_row_seperator(self.board.grid[0], self.board.grid[1])
+            + "\n"
+            + rows[1]
+            + "\n"
+            + self.render_row_seperator(self.board.grid[1], self.board.grid[2])
+            + "\n"
+            + rows[2]
         )
+
+    def render_board(self) -> hikari.Embed:
+        board_content = "\n\n".join([self.render_big_board(), self.render_small_board()])
         embed_color = "#0000ff" if self.current_turn == self.player_one else "#ff0000"
         title = f"<@{self.player_one}> ({Emoji.PLAYER_ONE}) vs <@{self.player_two}> ({Emoji.PLAYER_TWO})"
         return hikari.Embed(
-            description=title + "\n" + message,
+            description=title + "\n" + board_content,
             color=hikari.Color.from_hex_code(embed_color),
         )
 
@@ -297,13 +301,12 @@ class GameView(miru.View):
             button.recalc_styles()
 
 
-
 class InviteView(miru.View):
     def __init__(self, player_one: int, target: int) -> None:
         super().__init__(timeout=5 * 60)
         self.player_one = player_one
         self.target = target
-    
+
     async def on_timeout(self) -> None:
         if self.message is None:
             raise TypeError("Message is None")
@@ -325,7 +328,7 @@ class InviteView(miru.View):
             raise TypeError("Message is None")
 
         self.stop()
-        
+
         game = Game(self.player_one, self.target)
         view = GameView(game)
         await ctx.edit_response("", embed=game.render_board(), components=view.build())
@@ -337,12 +340,11 @@ class InviteView(miru.View):
         await ctx.edit_response("oh they declined :(", components=[])
 
 
-
 class OpenInviteView(miru.View):
     def __init__(self, player_one: int) -> None:
         super().__init__(timeout=10 * 60)
         self.player_one = player_one
-    
+
     async def on_timeout(self) -> None:
         if self.message is None:
             raise TypeError("Message is None")
@@ -358,11 +360,12 @@ class OpenInviteView(miru.View):
             raise TypeError("Message is None")
 
         self.stop()
-        
+
         game = Game(self.player_one, ctx.user.id)
         view = GameView(game)
         await ctx.edit_response("", embed=game.render_board(), components=view.build())
         view.start(self.message)
+
 
 @plugin.command
 @lightbulb.option("target", "who do you want to play against?", type=hikari.User, required=False)
@@ -380,6 +383,6 @@ async def tixtax_command(ctx: lightbulb.Context) -> None:
         response = await ctx.respond(
             f"<@{ctx.options.target.id}>, {ctx.user.mention} wants to play tixtax with you!",
             components=view.build(),
-            user_mentions=True
+            user_mentions=True,
         )
     view.start(await response.message())

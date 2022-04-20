@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import random
-import typing_extensions
 
 import hikari
 import lightbulb
 import miru
+import typing_extensions
 from loguru import logger
 
 LORE_TEXT = """
@@ -34,6 +34,7 @@ class NumberButton(miru.Button["Codebreaker"]):
 
     async def callback(self, context: miru.Context) -> None:
         await self.view.button_clicked(context, self.number)
+
 
 class Codebreaker(miru.View):
     def __init__(self, code: str, user_id: int) -> None:
@@ -95,8 +96,6 @@ class Codebreaker(miru.View):
         self.disable()
         await ctx.edit_response(self.current_output, components=[])
         self.stop()
-    
-    
 
 
 plugin = lightbulb.Plugin("Codebreaker", include_datastore=False)

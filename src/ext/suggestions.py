@@ -13,3 +13,10 @@ async def event_message(event: hikari.MessageCreateEvent) -> None:
         logger.debug("adding reactions")
         await event.message.add_reaction("👍")
         await event.message.add_reaction("👎")
+
+
+@plugin.command
+@lightbulb.command("test", "just a quick test")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def tixtax_command(ctx: lightbulb.Context) -> None:
+    await ctx.respond("I pushed this code to github, but I never manually restarted the bot!")

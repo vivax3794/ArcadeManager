@@ -55,12 +55,12 @@ class VerificationView(miru.View):
         self.data = data
         self.embed = embed
 
-    async def send_star_data(self, url: str, ctx: miru.Context) -> None:
+    def set_embed_fields(self, ctx: miru.Context) -> None:
         self.embed.set_author(name=ctx.user.username, icon=ctx.user.avatar_url)
         timestamp = int(time.time())
         self.embed.description = f"last interacted with: <t:{timestamp}:t> (<t:{timestamp}:R>)"
 
-        await ctx.defer()
+    async def send_star_data(self, url: str, ctx: miru.Context) -> None:
         async with plugin.d.session.post(url, json=self.data) as resp:
             logger.debug(await resp.text())
 
@@ -69,6 +69,10 @@ class AcceptDenyView(VerificationView):
     @miru.button(label="accept", style=hikari.ButtonStyle.SUCCESS)
     async def accept_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
         assert self.message is not None
+
+        self.set_embed_fields(ctx)
+        self.embed.color = hikari.Color.from_hex_code("#ffff00")
+        await ctx.edit_response(embeds=[self.embed], components=[])
 
         await self.send_star_data(ACCEPT_URL, ctx)
 
@@ -82,20 +86,27 @@ class AcceptDenyView(VerificationView):
 
     @miru.button(label="reject", style=hikari.ButtonStyle.DANGER)
     async def reject_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        self.set_embed_fields(ctx)
         await self.send_star_data(REJECT_URL, ctx)
 
         self.embed.color = hikari.Color.from_hex_code("#ff0000")
         self.clear_items()
         self.stop()
 
-        await ctx.edit_response(embeds=[self.embed], components=[])
+        await ctx.edit_response(embeds=[self.embed], components=[3])
 
 
 class ResendView(VerificationView):
     @miru.button(label="resend", style=hikari.ButtonStyle.PRIMARY)
     async def accept_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        self.set_embed_fields(ctx)
+        self.embed.color = hikari.Color.from_hex_code("#ffff00")
+        await ctx.edit_response(embeds=[self.embed], components=[])
+
         await self.send_star_data(ACCEPT_URL, ctx)
-        await ctx.edit_response(embeds=[self.embed])
+
+        self.embed.color = hikari.Color.from_hex_code("#00ff00")
+        await ctx.edit_response(embeds=[self.embed], components=self.build())
 
 
 @tasks.task(s=5)
@@ -112,15 +123,19 @@ async def check_for_newstars() -> None:
 async def post_new_stars(data: dict[str, Any]) -> None:
     user = data["senderTuid"]
 
-    embed = hikari.Embed(title=f"NEW STARS: {user}")
-    embed.set_image(render_stars(data["stars"]))
+    embed = hikari.Embed(title=f"NEW STARS: {user}", color=hikari.Color.from_hex_code("#ffff00"))
     embed.add_field("star count", str(len(data["stars"])))
-
-    data = {"jwt": constants.Secrets.JWT, "stars": data["stars"], "twitchId": user}
-
-    view = AcceptDenyView(data, embed)
     message = await plugin.bot.rest.create_message(
         constants.Channels.STARS,
+        embed=embed,
+    )
+
+    embed.set_image(render_stars(data["stars"]))
+    embed.color = hikari.Color.from_hex_code("#aaaaaa")
+
+    data = {"jwt": constants.Secrets.JWT, "stars": data["stars"], "twitchId": user}
+    view = AcceptDenyView(data, embed)
+    await message.edit(
         embed=embed,
         components=view.build(),
     )

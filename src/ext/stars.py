@@ -93,7 +93,7 @@ class AcceptDenyView(VerificationView):
         self.clear_items()
         self.stop()
 
-        await ctx.edit_response(embeds=[self.embed], components=[3])
+        await ctx.edit_response(embeds=[self.embed], components=[])
 
 
 class ResendView(VerificationView):

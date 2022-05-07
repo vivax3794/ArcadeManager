@@ -1,5 +1,6 @@
 import asyncio
 import io
+import sys
 import time
 from typing import Any
 
@@ -109,7 +110,6 @@ class ResendView(VerificationView):
         await ctx.edit_response(embeds=[self.embed], components=self.build())
 
 
-@tasks.task(s=5)
 async def check_for_newstars() -> None:
     logger.debug("checking for new stars to verify.")
     async with plugin.d.session.post(CHECK_URL) as resp:
@@ -118,6 +118,42 @@ async def check_for_newstars() -> None:
     if len(data["stars"]) != 0:
         logger.warning("NEW STARS!")
         await asyncio.gather(post_new_stars(data), check_for_newstars())
+
+
+class ErrorView(miru.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)  # Setting timeout to None
+
+    @miru.button(label="restart", custom_id="restart-verification")
+    async def restart_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
+        await ctx.respond(
+            "restarted verification systems.",
+            flags=hikari.MessageFlag.EPHEMERAL
+        )
+        await start_verification_systems()
+
+
+async def check_error(_error: Exception) -> bool:
+    logger.error("error in getting stars")
+    (
+        type_,
+        value,
+        _,
+    ) = sys.exc_info()
+    error_embed = hikari.Embed(
+        title=f":warning:  {type_.__name__ if type_ else None}: {value}",
+        description="Error encounterd, deactivating verification systems.",
+        color=hikari.Color.from_hex_code("#ff0000"),
+    )
+    error_view = ErrorView()
+    await plugin.bot.rest.create_message(
+        constants.Channels.STARS,
+        f"<@{constants.Users.DEV}>",
+        embed=error_embed,
+        user_mentions=[constants.Users.DEV],
+        components=error_view.build()
+    )
+    return False
 
 
 async def post_new_stars(data: dict[str, Any]) -> None:
@@ -160,9 +196,24 @@ def render_stars(stars: list[dict[str, float]]) -> io.BytesIO:
     return output
 
 
+async def start_verification_systems() -> None:
+    logger.debug("starting task")
+    task = tasks.task(s=5, max_consecutive_failures=1)(check_for_newstars)
+    task.set_error_handler(check_error)
+    task.start()
+
+    start_embed = hikari.Embed(title="verification online", color=hikari.Color.from_hex_code("#00ff00"))
+    await plugin.bot.rest.create_message(
+        constants.Channels.STARS,
+        embed=start_embed,
+    )
+
+
 @plugin.listener(hikari.ShardReadyEvent)
 async def event_ready(event: hikari.ShardReadyEvent) -> None:
+    error_view = ErrorView()
+    error_view.start_listener()
+
     logger.debug("READY")
     plugin.d.session = aiohttp.ClientSession()
-    logger.debug("starting task")
-    check_for_newstars.start()
+    await start_verification_systems()

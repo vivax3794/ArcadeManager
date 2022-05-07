@@ -41,3 +41,8 @@ class Secrets:
 class Channels:
     SUGGESTIONS = config("SUGGESTIONS_CHANNEL", cast=int, default=0)
     STARS = config("STARS_CHANNEL", cast=int, default=0)
+
+
+class Users:
+    DEV = 366331361583169537
+    STREAMER = 366331361583169537

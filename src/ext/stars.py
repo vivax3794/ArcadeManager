@@ -111,7 +111,7 @@ class ResendView(VerificationView):
 
 
 async def check_for_newstars() -> None:
-    logger.debug("checking for new stars to verify.")
+    # logger.debug("checking for new stars to verify.")
     async with plugin.d.session.post(CHECK_URL) as resp:
         data = await resp.json()
 
@@ -126,10 +126,7 @@ class ErrorView(miru.View):
 
     @miru.button(label="restart", custom_id="restart-verification")
     async def restart_button(self, button: miru.Button[typing_extensions.Self], ctx: miru.Context) -> None:
-        await ctx.respond(
-            "restarted verification systems.",
-            flags=hikari.MessageFlag.EPHEMERAL
-        )
+        await ctx.respond("restarted verification systems.", flags=hikari.MessageFlag.EPHEMERAL)
         await start_verification_systems()
 
 
@@ -151,7 +148,7 @@ async def check_error(_error: Exception) -> bool:
         f"<@{constants.Users.DEV}>",
         embed=error_embed,
         user_mentions=[constants.Users.DEV],
-        components=error_view.build()
+        components=error_view.build(),
     )
     return False
 
@@ -187,7 +184,7 @@ def render_stars(stars: list[dict[str, float]]) -> io.BytesIO:
         x = int(x * 1000)
         y = int(y * 510)
         color = COLORS[type_]
-        logger.debug(f"drawing ({x}, {y}) with color {color}")
+        # logger.debug(f"drawing ({x}, {y}) with color {color}")
         draw.rectangle(((x, y), (x + 5, y + 5)), fill=color)
 
     output = io.BytesIO()
